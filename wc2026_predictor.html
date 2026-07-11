@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Cup 26 — Prediction Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pitch-0:#071a10;
+    --pitch-1:#0e2b1a;
+    --pitch-2:#123420;
+    --gold:#d4af37;
+    --gold-bright:#f2d571;
+    --team-a:#e2483d;
+    --team-b:#3d7fe2;
+    --ink:#eef3ea;
+    --muted:#93ab99;
+    --muted-dim:#6c8672;
+    --card-bg:rgba(18,52,32,0.55);
+    --card-border:rgba(212,175,55,0.22);
+    --radius:18px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--pitch-0);
+    color:var(--ink);
+    font-family:'Archivo',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important;}
+  }
+
+  h1,h2,h3{font-family:'Archivo Black',sans-serif; margin:0; letter-spacing:-0.01em;}
+  .eyebrow{
+    font-family:'Space Mono',monospace;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    font-size:0.72rem;
+    color:var(--gold);
+  }
+  a{color:inherit;}
+  button{font-family:inherit;}
+
+  /* ---------- background texture shared: real pitch, mown stripes, markings ---------- */
+  .pitch-field{
+    position:fixed; inset:-4% -4%; z-index:-5;
+    background:
+      repeating-linear-gradient(180deg,
+        rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 90px,
+        rgba(0,0,0,0.05) 90px, rgba(0,0,0,0.05) 180px),
+      linear-gradient(180deg, var(--pitch-0), var(--pitch-1) 45%, var(--pitch-0));
+    background-size:100% 260px, 100% 100%;
+    animation:mow 26s linear infinite;
+  }
+  @keyframes mow{ 0%{background-position:0 0, 0 0;} 100%{background-position:0 1040px, 0 0;} }
+
+  .pitch-lines{
+    position:fixed; inset:0; z-index:-4; pointer-events:none;
+    opacity:0.5;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.09' stroke-width='2.2'%3E%3Crect x='16' y='16' width='968' height='568' rx='4'/%3E%3Cline x1='500' y1='16' x2='500' y2='584'/%3E%3Ccircle cx='500' cy='300' r='92'/%3E%3Ccircle cx='500' cy='300' r='3.4' fill='%23ffffff' fill-opacity='0.09'/%3E%3Crect x='16' y='165' width='128' height='270'/%3E%3Crect x='856' y='165' width='128' height='270'/%3E%3Crect x='16' y='228' width='46' height='144'/%3E%3Crect x='938' y='228' width='46' height='144'/%3E%3Cpath d='M144 240 A38 38 0 0 1 144 360'/%3E%3Cpath d='M856 240 A38 38 0 0 0 856 360'/%3E%3Cpath d='M40 16 A22 22 0 0 1 16 40'/%3E%3Cpath d='M960 16 A22 22 0 0 0 984 40'/%3E%3Cpath d='M40 584 A22 22 0 0 0 16 560'/%3E%3Cpath d='M960 584 A22 22 0 0 1 984 560'/%3E%3C/g%3E%3C/svg%3E");
+    background-size:100% 100%;
+    background-repeat:no-repeat;
+  }
+  .pitch-glow{
+    position:fixed; inset:0; z-index:-3; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(212,175,55,0.12), transparent 55%),
+      radial-gradient(ellipse at 90% 110%, rgba(61,127,226,0.09), transparent 50%),
+      radial-gradient(ellipse at 6% 60%, rgba(226,72,61,0.06), transparent 45%);
+    animation:glowShift 16s ease-in-out infinite;
+  }
+  @keyframes glowShift{
+    0%,100%{ transform:translate(0,0) scale(1); }
+    50%{ transform:translate(-1.5%,1.5%) scale(1.04); }
+  }
+  .vignette{
+    position:fixed; inset:0; z-index:-2; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,0.6) 100%);
+  }
+
+  /* ---------- floating footballs drifting across the page ---------- */
+  .floating-ball{
+    position:fixed; z-index:-1; pointer-events:none;
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,0.35));
+    animation:ballDrift ease-in-out infinite;
+  }
+  .floating-ball svg{ display:block; width:100%; height:100%; }
+  @keyframes ballDrift{
+    0%{ transform:translate(0,0) rotate(0deg); }
+    50%{ transform:translate(18px,-26px) rotate(190deg); }
+    100%{ transform:translate(0,0) rotate(360deg); }
+  }
+
+  /* ---------- custom football cursor ---------- */
+  .cursor-ball, .cursor-trail{ display:none; }
+  @media (pointer:fine){
+    body.has-custom-cursor, body.has-custom-cursor a, body.has-custom-cursor button,
+    body.has-custom-cursor select, body.has-custom-cursor input{ cursor:none; }
+    body.has-custom-cursor .cursor-ball{
+      display:block;
+      position:fixed; top:0; left:0; width:30px; height:30px;
+      margin:-15px 0 0 -15px;
+      pointer-events:none; z-index:9999;
+      will-change:transform;
+      filter:drop-shadow(0 3px 6px rgba(0,0,0,0.45));
+    }
+    body.has-custom-cursor .cursor-ball-inner{
+      width:100%; height:100%;
+      transition:transform .22s cubic-bezier(.2,.8,.2,1), filter .22s ease;
+    }
+    body.has-custom-cursor .cursor-ball.is-hover .cursor-ball-inner{
+      transform:scale(1.4);
+      filter:drop-shadow(0 0 12px rgba(212,175,55,0.75));
+    }
+    body.has-custom-cursor .cursor-trail{
+      display:block;
+      position:fixed; top:0; left:0; width:7px; height:7px;
+      margin:-3.5px 0 0 -3.5px;
+      border-radius:50%;
+      background:radial-gradient(circle, var(--gold-bright), rgba(212,175,55,0));
+      pointer-events:none; z-index:9998;
+      will-change:transform;
+      opacity:0.75;
+    }
+  }
+  .kick-spark{
+    position:fixed; top:0; left:0; width:6px; height:6px;
+    margin:-3px 0 0 -3px;
+    border-radius:50%;
+    background:var(--gold-bright);
+    pointer-events:none; z-index:9997;
+    box-shadow:0 0 6px rgba(212,175,55,0.8);
+    animation:kickSpark .55s ease-out forwards;
+  }
+  @keyframes kickSpark{
+    to{ transform:translate(var(--dx),var(--dy)) scale(0.3); opacity:0; }
+  }
+
+  /* ---------- sticky nav ---------- */
+  nav.topnav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 5vw;
+    background:rgba(7,26,16,0.72);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(212,175,55,0.15);
+  }
+  .brand{
+    font-family:'Archivo Black',sans-serif;
+    font-size:1rem;
+    letter-spacing:0.02em;
+    display:flex; align-items:center; gap:9px;
+  }
+  .brand span{color:var(--gold);}
+  .brand-ball{ width:18px; height:18px; display:inline-block; transition:transform .6s cubic-bezier(.2,.8,.2,1); }
+  .brand:hover .brand-ball{ transform:rotate(300deg); }
+  .navlinks{display:flex; gap:28px;}
+  .navlinks a{
+    font-family:'Space Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-decoration:none;
+    position:relative;
+    padding-bottom:4px;
+    transition:color .25s ease;
+  }
+  .navlinks a::after{
+    content:'';
+    position:absolute; left:0; bottom:0; width:0; height:1px;
+    background:var(--gold);
+    transition:width .3s ease;
+  }
+  .navlinks a:hover{color:var(--gold-bright);}
+  .navlinks a:hover::after{width:100%;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    padding:120px 6vw 80px;
+    position:relative;
+  }
+  .hero-orb{
+    position:absolute;
+    width:420px; height:420px;
+    border-radius:50%;
+    top:8%; right:-8%;
+    background:radial-gradient(circle at 35% 30%, rgba(212,175,55,0.35), rgba(212,175,55,0.02) 70%);
+    filter:blur(2px);
+    animation:drift 9s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .hero-orb.two{
+    top:auto; bottom:2%; left:-10%; right:auto; width:320px; height:320px;
+    background:radial-gradient(circle at 40% 40%, rgba(61,127,226,0.25), transparent 70%);
+    animation-duration:11s;
+    animation-delay:-3s;
+  }
+  @keyframes drift{
+    0%,100%{transform:translate(0,0) scale(1);}
+    50%{transform:translate(-18px,22px) scale(1.06);}
+  }
+
+  .hero-eyebrow{
+    opacity:0; transform:translateY(14px);
+    animation:riseIn .7s ease forwards;
+    animation-delay:.1s;
+    margin-bottom:22px;
+  }
+  .hero h1{
+    font-size:clamp(2.6rem,7.2vw,6.2rem);
+    line-height:0.98;
+    text-transform:uppercase;
+    max-width:16ch;
+  }
+  .hero h1 .line{
+    display:block;
+    overflow:hidden;
+  }
+  .hero h1 .line span{
+    display:inline-block;
+    opacity:0;
+    transform:translateY(110%);
+    animation:riseIn .8s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  .hero h1 .gold-word{color:var(--gold); background:linear-gradient(100deg,var(--gold-bright),var(--gold) 60%); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  @keyframes riseIn{ to{opacity:1; transform:translateY(0);} }
+
+  .hero p.sub{
+    font-size:clamp(1rem,1.6vw,1.25rem);
+    color:var(--muted);
+    max-width:46ch;
+    margin:26px auto 0;
+    opacity:0; transform:translateY(14px);
+    animation:riseIn .8s ease forwards;
+    animation-delay:.9s;
+  }
+  .hero .cta-row{
+    margin-top:40px;
+    opacity:0; transform:translateY(14px);
+    animation:riseIn .8s ease forwards;
+    animation-delay:1.15s;
+  }
+  .btn-primary{
+    position:relative;
+    background:linear-gradient(100deg,var(--gold-bright),var(--gold));
+    color:#0a1f14;
+    border:none;
+    font-weight:800;
+    font-family:'Space Mono',monospace;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    font-size:0.8rem;
+    padding:16px 30px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:transform .25s cubic-bezier(.3,1.6,.5,1), box-shadow .25s ease;
+    box-shadow:0 10px 30px -10px rgba(212,175,55,0.5);
+    overflow:hidden;
+  }
+  .btn-primary::after{
+    content:'⚽';
+    position:absolute; top:50%; left:-10%;
+    transform:translate(0,-50%) scale(0.8) rotate(0deg);
+    opacity:0;
+    transition:transform .45s cubic-bezier(.3,1.4,.4,1), opacity .3s ease;
+    pointer-events:none;
+  }
+  .btn-primary:hover{transform:translateY(-3px); box-shadow:0 16px 36px -10px rgba(212,175,55,0.65);}
+  .btn-primary:hover::after{ left:auto; right:16px; opacity:0.9; transform:translate(0,-50%) scale(1) rotate(280deg); }
+  .btn-primary:active{ transform:translateY(-1px) scale(0.97); }
+
+  /* ---------- rolling ball accent ---------- */
+  .hero-ball{
+    width:54px; height:54px;
+    margin:0 auto 26px;
+    opacity:0; transform:translateY(14px);
+    animation:riseIn .7s ease forwards, ballSpin 3.4s linear infinite .7s;
+    animation-delay:.02s, .7s;
+  }
+  .hero-ball svg{ width:100%; height:100%; display:block; filter:drop-shadow(0 10px 16px rgba(0,0,0,0.4)); }
+  @keyframes ballSpin{ to{ transform:rotate(360deg); } }
+
+  .scroll-cue{
+    position:absolute;
+    bottom:34px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    color:var(--muted-dim);
+    animation:bob 2.2s ease-in-out infinite;
+  }
+  .scroll-cue span{font-family:'Space Mono',monospace; font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;}
+  @keyframes bob{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,8px);}}
+
+  /* ---------- generic sections ---------- */
+  section{padding:110px 6vw; position:relative;}
+  .section-head{max-width:640px; margin:0 auto 56px; text-align:center;}
+  .section-head h2{font-size:clamp(1.9rem,4vw,3rem); margin-top:10px; text-transform:uppercase;}
+  .section-head p{color:var(--muted); margin-top:14px; font-size:1.02rem;}
+
+  .reveal{opacity:0; transform:translateY(28px); transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1);}
+  .reveal.is-visible{opacity:1; transform:translateY(0);}
+  .reveal-delay-1{transition-delay:.08s;}
+  .reveal-delay-2{transition-delay:.16s;}
+  .reveal-delay-3{transition-delay:.24s;}
+  .reveal-delay-4{transition-delay:.32s;}
+  .reveal-delay-5{transition-delay:.4s;}
+
+  /* ---------- predictor card ---------- */
+  .predictor-wrap{max-width:920px; margin:0 auto;}
+  .card{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius);
+    backdrop-filter:blur(14px);
+  }
+  .predict-card{padding:38px clamp(20px,4vw,48px);}
+  .team-select-row{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    gap:20px;
+    align-items:end;
+  }
+  .select-group label{
+    display:block;
+    font-family:'Space Mono',monospace;
+    font-size:0.68rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .select-group.a label{color:var(--team-a);}
+  .select-group.b label{color:var(--team-b);}
+  select{
+    width:100%;
+    padding:14px 16px;
+    background:rgba(7,26,16,0.6);
+    border:1px solid rgba(212,175,55,0.3);
+    border-radius:10px;
+    color:var(--ink);
+    font-family:'Archivo',sans-serif;
+    font-size:1rem;
+    font-weight:600;
+    appearance:none;
+    cursor:pointer;
+    transition:border-color .2s ease;
+  }
+  .select-group.a select{border-color:rgba(226,72,61,0.4);}
+  .select-group.b select{border-color:rgba(61,127,226,0.4);}
+  select:focus{outline:2px solid var(--gold); outline-offset:2px;}
+  .vs-badge{
+    font-family:'Archivo Black',sans-serif;
+    color:var(--gold);
+    font-size:1.1rem;
+    padding-bottom:14px;
+    text-align:center;
+  }
+
+  .predict-btn-row{text-align:center; margin-top:28px;}
+
+  .result{
+    margin-top:36px;
+    display:none;
+  }
+  .result.show{display:block;}
+  .result-winner{
+    text-align:center;
+    font-family:'Space Mono',monospace;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    font-size:0.75rem;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .result-winner strong{
+    display:block;
+    font-family:'Archivo Black',sans-serif;
+    font-size:clamp(1.6rem,3.4vw,2.4rem);
+    color:var(--gold-bright);
+    text-transform:uppercase;
+    letter-spacing:0;
+    margin-top:4px;
+  }
+
+  .conf-bars{margin-top:28px; display:flex; flex-direction:column; gap:16px;}
+  .conf-row{display:grid; grid-template-columns:110px 1fr 64px; align-items:center; gap:14px;}
+  .conf-name{font-weight:700; font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .conf-track{
+    height:14px;
+    background:rgba(255,255,255,0.06);
+    border-radius:999px;
+    overflow:hidden;
+    position:relative;
+  }
+  .conf-fill{
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    transition:width 1.1s cubic-bezier(.2,.8,.2,1);
+  }
+  .conf-fill.a{background:linear-gradient(90deg,#a8241b,var(--team-a));}
+  .conf-fill.b{background:linear-gradient(90deg,var(--team-b),#7fb0ff);}
+  .conf-pct{font-family:'Space Mono',monospace; font-size:0.85rem; text-align:right; color:var(--muted);}
+
+  .rating-row{
+    margin-top:22px;
+    display:flex; justify-content:space-between;
+    font-family:'Space Mono',monospace;
+    font-size:0.75rem;
+    color:var(--muted-dim);
+    border-top:1px dashed rgba(212,175,55,0.18);
+    padding-top:16px;
+  }
+
+  /* ---------- bracket ---------- */
+  .bracket-wrap{max-width:1040px; margin:70px auto 0;}
+  .bracket{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:18px;
+    align-items:center;
+  }
+  .bracket-col{display:flex; flex-direction:column; gap:22px;}
+  .bracket-col.final{justify-content:center;}
+  .tie{
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:12px;
+    padding:14px 16px;
+    position:relative;
+  }
+  .tie .label{font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.12em; color:var(--muted-dim); text-transform:uppercase; margin-bottom:8px;}
+  .tie-team{display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:0.9rem;}
+  .tie-team.winner{font-weight:800; color:var(--gold-bright);}
+  .tie-team .pct{font-family:'Space Mono',monospace; font-size:0.78rem; color:var(--muted);}
+  .champion-tile{
+    background:linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.04));
+    border:1px solid rgba(212,175,55,0.5);
+    border-radius:14px;
+    padding:26px 18px;
+    text-align:center;
+  }
+  .champion-tile .label{font-family:'Space Mono',monospace; font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold);}
+  .champion-tile .name{font-family:'Archivo Black',sans-serif; font-size:1.5rem; margin-top:8px; text-transform:uppercase;}
+
+  @media (max-width:760px){
+    .bracket{grid-template-columns:1fr;}
+  }
+
+  .confirm-card{
+    margin-top:24px;
+    padding:26px clamp(18px,3vw,32px);
+  }
+  .confirm-card .label{
+    font-family:'Space Mono',monospace; font-size:0.68rem; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--gold); margin-bottom:8px;
+  }
+  .confirm-copy{color:var(--muted); font-size:0.88rem; margin:0 0 18px; max-width:60ch;}
+  .confirm-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .confirm-row select{
+    padding:12px 14px;
+    background:rgba(7,26,16,0.6);
+    border:1px solid rgba(212,175,55,0.3);
+    border-radius:10px;
+    color:var(--ink);
+    font-family:'Archivo',sans-serif;
+    font-size:0.92rem;
+    font-weight:600;
+    cursor:pointer;
+  }
+  #confirmBtn{margin-top:18px; padding:13px 26px; font-size:0.72rem;}
+  .confirm-status{
+    margin-top:14px;
+    font-family:'Space Mono',monospace;
+    font-size:0.75rem;
+    color:var(--gold-bright);
+    min-height:1em;
+  }
+  @media (max-width:600px){ .confirm-row{grid-template-columns:1fr;} }
+
+  .champion-banner{
+    display:none;
+    align-items:center; gap:20px;
+    max-width:1040px; margin:0 auto 28px;
+    padding:26px 32px;
+    background:linear-gradient(100deg, rgba(212,175,55,0.22), rgba(212,175,55,0.06));
+    border:1px solid rgba(212,175,55,0.6);
+    border-radius:16px;
+    box-shadow:0 20px 50px -20px rgba(212,175,55,0.45);
+    animation:bannerIn .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .champion-banner .trophy{font-size:2.6rem; line-height:1; filter:drop-shadow(0 0 14px rgba(212,175,55,0.6));}
+  .champion-banner .banner-eyebrow{
+    font-family:'Space Mono',monospace; font-size:0.68rem; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--gold);
+  }
+  .champion-banner .banner-name{
+    font-family:'Archivo Black',sans-serif; font-size:clamp(1.6rem,3.6vw,2.6rem);
+    text-transform:uppercase; margin-top:4px; color:var(--gold-bright);
+  }
+  @keyframes bannerIn{ from{opacity:0; transform:translateY(-14px);} to{opacity:1; transform:translateY(0);} }
+
+  .champion-tile.actual{
+    border-color:rgba(212,175,55,0.85);
+    background:linear-gradient(135deg, rgba(212,175,55,0.3), rgba(212,175,55,0.08));
+    animation:championPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes championPulse{
+    0%,100%{box-shadow:0 0 0 rgba(212,175,55,0);}
+    50%{box-shadow:0 0 26px rgba(212,175,55,0.35);}
+  }
+  .confirm-row-single{grid-template-columns:1fr;}
+
+  /* ---------- title odds ---------- */
+  .odds-wrap{max-width:760px; margin:80px auto 0;}
+  .odds-title{text-align:center; margin-bottom:30px;}
+  .odds-title .eyebrow{display:block; margin-bottom:8px;}
+  .odds-row{display:grid; grid-template-columns:140px 1fr 60px; align-items:center; gap:14px; margin-bottom:14px;}
+  .odds-name{font-weight:700; font-size:0.9rem;}
+  .odds-track{height:12px; background:rgba(255,255,255,0.06); border-radius:999px; overflow:hidden;}
+  .odds-fill{height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,var(--gold),var(--gold-bright)); transition:width 1.3s cubic-bezier(.2,.8,.2,1);}
+  .odds-pct{font-family:'Space Mono',monospace; font-size:0.82rem; color:var(--muted); text-align:right;}
+
+  .confirm-text{
+    padding:12px 14px;
+    background:rgba(7,26,16,0.6);
+    border:1px solid rgba(212,175,55,0.3);
+    border-radius:10px;
+    color:var(--ink);
+    font-family:'Archivo',sans-serif;
+    font-size:0.92rem;
+  }
+  .confirm-text::placeholder{color:var(--muted-dim);}
+  .honor-card.pending{opacity:0.55;}
+  .honor-card.pending .honor-name{color:var(--muted);}
+  @keyframes honorPop{ from{opacity:0; transform:translateY(10px) scale(.98);} to{opacity:1; transform:translateY(0) scale(1);} }
+  .honor-card.pop{animation:honorPop .5s cubic-bezier(.2,.8,.2,1);}
+  .honor-badge{
+    display:inline-block;
+    font-family:'Space Mono',monospace;
+    font-size:0.6rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--pitch-0);
+    background:var(--gold-bright);
+    padding:3px 8px;
+    border-radius:999px;
+    margin-left:8px;
+    vertical-align:middle;
+  }
+
+  /* ---------- honors ---------- */
+  .honors-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:22px;
+    max-width:1100px;
+    margin:0 auto;
+  }
+  .honor-card{
+    padding:30px 26px;
+    display:flex; flex-direction:column; gap:14px;
+    transition:transform .3s ease, border-color .3s ease;
+  }
+  .honor-card{position:relative; overflow:hidden;}
+  .honor-card::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(212,175,55,0.06) 0 1px, transparent 1px 14px),
+      repeating-linear-gradient(-45deg, rgba(212,175,55,0.06) 0 1px, transparent 1px 14px);
+    opacity:0;
+    transition:opacity .35s ease;
+    pointer-events:none;
+  }
+  .honor-card:hover{transform:translateY(-6px); border-color:rgba(212,175,55,0.5);}
+  .honor-card:hover::before{opacity:1;}
+  .honor-icon{
+    width:46px; height:46px;
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(212,175,55,0.12);
+    border:1px solid rgba(212,175,55,0.3);
+    font-size:1.3rem;
+  }
+  .honor-card .eyebrow{margin-bottom:0;}
+  .honor-name{font-family:'Archivo Black',sans-serif; font-size:1.3rem; text-transform:uppercase; margin-top:2px;}
+  .honor-sub{font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--gold); letter-spacing:0.04em;}
+  .honor-note{color:var(--muted); font-size:0.9rem; line-height:1.5;}
+
+  footer{
+    text-align:center;
+    padding:50px 6vw 70px;
+    color:var(--muted-dim);
+    font-family:'Space Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.06em;
+  }
+  footer .cutoff{color:var(--gold); margin-top:6px; display:block;}
+
+  @media (max-width:640px){
+    .team-select-row{grid-template-columns:1fr; gap:14px;}
+    .vs-badge{padding-bottom:0;}
+    .conf-row{grid-template-columns:80px 1fr 48px; gap:8px;}
+    .rating-row{flex-direction:column; gap:6px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="pitch-field"></div>
+<div class="pitch-lines"></div>
+<div class="pitch-glow"></div>
+<div class="vignette"></div>
+
+<div class="cursor-trail" id="cursorTrail"></div>
+<div class="cursor-ball" id="cursorBall"><div class="cursor-ball-inner">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="46" fill="#f7f5ef" stroke="#14140f" stroke-width="4"/>
+    <polygon points="50,32 63,42 58,58 42,58 37,42" fill="#14140f"/>
+    <line x1="50" y1="32" x2="50" y2="8" stroke="#14140f" stroke-width="3.5"/>
+    <line x1="63" y1="42" x2="86" y2="34" stroke="#14140f" stroke-width="3.5"/>
+    <line x1="58" y1="58" x2="72" y2="80" stroke="#14140f" stroke-width="3.5"/>
+    <line x1="42" y1="58" x2="28" y2="80" stroke="#14140f" stroke-width="3.5"/>
+    <line x1="37" y1="42" x2="14" y2="34" stroke="#14140f" stroke-width="3.5"/>
+  </svg>
+</div></div>
+
+<div class="floating-ball" style="width:30px;height:30px; top:22%; left:6%; animation-duration:13s;">
+  <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#f7f5ef" fill-opacity="0.14" stroke="#f7f5ef" stroke-opacity="0.22" stroke-width="4"/><polygon points="50,32 63,42 58,58 42,58 37,42" fill="#f7f5ef" fill-opacity="0.22"/></svg>
+</div>
+<div class="floating-ball" style="width:22px;height:22px; top:64%; left:91%; animation-duration:17s; animation-delay:-4s;">
+  <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#f7f5ef" fill-opacity="0.12" stroke="#f7f5ef" stroke-opacity="0.2" stroke-width="4"/><polygon points="50,32 63,42 58,58 42,58 37,42" fill="#f7f5ef" fill-opacity="0.2"/></svg>
+</div>
+<div class="floating-ball" style="width:26px;height:26px; top:85%; left:12%; animation-duration:15s; animation-delay:-8s;">
+  <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#f7f5ef" fill-opacity="0.13" stroke="#f7f5ef" stroke-opacity="0.2" stroke-width="4"/><polygon points="50,32 63,42 58,58 42,58 37,42" fill="#f7f5ef" fill-opacity="0.2"/></svg>
+</div>
+
+<nav class="topnav">
+  <div class="brand">
+    <svg class="brand-ball" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="46" fill="#f7f5ef" stroke="#14140f" stroke-width="6"/>
+      <polygon points="50,32 63,42 58,58 42,58 37,42" fill="#14140f"/>
+      <line x1="50" y1="32" x2="50" y2="8" stroke="#14140f" stroke-width="5"/>
+      <line x1="63" y1="42" x2="86" y2="34" stroke="#14140f" stroke-width="5"/>
+      <line x1="58" y1="58" x2="72" y2="80" stroke="#14140f" stroke-width="5"/>
+      <line x1="42" y1="58" x2="28" y2="80" stroke="#14140f" stroke-width="5"/>
+      <line x1="37" y1="42" x2="14" y2="34" stroke="#14140f" stroke-width="5"/>
+    </svg>
+    WC<span>26</span> MODEL
+  </div>
+  <div class="navlinks">
+    <a href="#hero">Home</a>
+    <a href="#predictor">Predictor</a>
+    <a href="#honors">Honors</a>
+  </div>
+</nav>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="hero">
+  <div class="hero-orb"></div>
+  <div class="hero-orb two"></div>
+  <div class="hero-ball">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="46" fill="#f7f5ef" stroke="#14140f" stroke-width="4"/>
+      <polygon points="50,32 63,42 58,58 42,58 37,42" fill="#14140f"/>
+      <line x1="50" y1="32" x2="50" y2="8" stroke="#14140f" stroke-width="3.5"/>
+      <line x1="63" y1="42" x2="86" y2="34" stroke="#14140f" stroke-width="3.5"/>
+      <line x1="58" y1="58" x2="72" y2="80" stroke="#14140f" stroke-width="3.5"/>
+      <line x1="42" y1="58" x2="28" y2="80" stroke="#14140f" stroke-width="3.5"/>
+      <line x1="37" y1="42" x2="14" y2="34" stroke="#14140f" stroke-width="3.5"/>
+    </svg>
+  </div>
+  <div class="hero-eyebrow eyebrow">FIFA World Cup 2026 · Quarterfinal Data Cutoff</div>
+  <h1>
+    <span class="line"><span style="animation-delay:.15s">WORLD CUP</span></span>
+    <span class="line"><span style="animation-delay:.3s" class="gold-word">26</span> <span style="animation-delay:.4s">—</span></span>
+    <span class="line"><span style="animation-delay:.5s">PREDICTION</span></span>
+    <span class="line"><span style="animation-delay:.62s">MODEL</span></span>
+  </h1>
+  <p class="sub">Powered by a custom Elo-style rating engine — pick any two teams, simulate the bracket, and see who lifts the trophy.</p>
+  <div class="cta-row">
+    <button class="btn-primary" onclick="document.getElementById('predictor').scrollIntoView({behavior:'smooth'})">Run the model</button>
+  </div>
+  <div class="scroll-cue">
+    <span>Scroll</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+</section>
+
+<!-- ===================== PREDICTOR ===================== -->
+<section id="predictor">
+  <div class="section-head reveal">
+    <div class="eyebrow">Matchup Predictor</div>
+    <h2>Any two teams. One winner.</h2>
+    <p>Ratings are built from group-stage points, goal difference, knockout rounds won, and a manual form adjustment — then compared with the standard Elo logistic formula.</p>
+  </div>
+
+  <div class="predictor-wrap">
+    <div class="card predict-card reveal">
+      <div class="team-select-row">
+        <div class="select-group a">
+          <label for="teamA">Team A</label>
+          <select id="teamA"></select>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="select-group b">
+          <label for="teamB">Team B</label>
+          <select id="teamB"></select>
+        </div>
+      </div>
+      <div class="predict-btn-row">
+        <button class="btn-primary" id="predictBtn">Predict the winner</button>
+      </div>
+
+      <div class="result" id="result">
+        <div class="result-winner">Predicted winner
+          <strong id="winnerName">—</strong>
+        </div>
+        <div class="conf-bars">
+          <div class="conf-row">
+            <div class="conf-name" id="nameA">—</div>
+            <div class="conf-track"><div class="conf-fill a" id="fillA"></div></div>
+            <div class="conf-pct" id="pctA">0%</div>
+          </div>
+          <div class="conf-row">
+            <div class="conf-name" id="nameB">—</div>
+            <div class="conf-track"><div class="conf-fill b" id="fillB"></div></div>
+            <div class="conf-pct" id="pctB">0%</div>
+          </div>
+        </div>
+        <div class="rating-row">
+          <span id="ratingA">Power rating —</span>
+          <span id="ratingB">Power rating —</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== PATH TO FINAL ===================== -->
+    <div class="bracket-wrap">
+      <div class="section-head reveal" style="margin-bottom:36px;">
+        <div class="eyebrow">Path To The Final</div>
+        <h2 style="font-size:clamp(1.5rem,3vw,2.1rem);">The bracket, as the model sees it</h2>
+        <p>Based on results through the quarterfinal round. Percentages show each side's win probability in that tie. Confirm real results below as they land, round by round, right through to the final.</p>
+      </div>
+
+      <div class="champion-banner" id="championBanner">
+        <span class="trophy">🏆</span>
+        <div>
+          <div class="banner-eyebrow">FIFA World Cup 2026 Champion</div>
+          <div class="banner-name" id="championBannerName">—</div>
+        </div>
+      </div>
+
+      <div class="bracket reveal" id="bracket"></div>
+
+      <div class="card confirm-card reveal" id="confirmCard">
+        <div class="label">Step 1 · Quarterfinals</div>
+        <p class="confirm-copy">Once Norway v England and Argentina v Switzerland are final, set the winners below — ratings, the bracket, and the title odds all recompute instantly.</p>
+        <div class="confirm-row">
+          <select id="confirmNE">
+            <option value="">Norway v England — not yet played</option>
+            <option value="Norway">Norway win</option>
+            <option value="England">England win</option>
+          </select>
+          <select id="confirmAS">
+            <option value="">Argentina v Switzerland — not yet played</option>
+            <option value="Argentina">Argentina win</option>
+            <option value="Switzerland">Switzerland win</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="confirmBtn">Update the model</button>
+        <div class="confirm-status" id="confirmStatus"></div>
+      </div>
+
+      <div class="card confirm-card reveal" id="confirmSFCard">
+        <div class="label">Step 2 · Semifinals</div>
+        <p class="confirm-copy">Set the semifinal winners — leave the quarterfinals above unconfirmed to test hypothetical semifinalists, or confirm them first for the real matchups.</p>
+        <div class="confirm-row">
+          <select id="confirmSF1">
+            <option value="">Semifinal 1 — France v Spain — not yet played</option>
+            <option value="France">France win</option>
+            <option value="Spain">Spain win</option>
+          </select>
+          <select id="confirmSF2">
+            <option value="">Semifinal 2 — not yet played</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="confirmSFBtn">Update the model</button>
+        <div class="confirm-status" id="confirmSFStatus"></div>
+      </div>
+
+      <div class="card confirm-card reveal" id="confirmFinalCard">
+        <div class="label">Step 3 · The Final</div>
+        <p class="confirm-copy">Crown the actual World Cup winner once the final is played — this replaces the model's prediction with the real result.</p>
+        <div class="confirm-row confirm-row-single">
+          <select id="confirmFinal">
+            <option value="">Final — not yet played</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="confirmFinalBtn">Crown the champion</button>
+        <div class="confirm-status" id="confirmFinalStatus"></div>
+      </div>
+    </div>
+
+    <!-- ===================== TITLE ODDS ===================== -->
+    <div class="odds-wrap">
+      <div class="odds-title reveal">
+        <span class="eyebrow">Monte Carlo Simulation · 20,000 runs</span>
+        <h3 style="font-family:'Archivo Black',sans-serif; font-size:1.5rem; text-transform:uppercase;">Title odds</h3>
+      </div>
+      <div id="oddsList" class="reveal"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== HONORS ===================== -->
+<section id="honors">
+  <div class="section-head reveal">
+    <div class="eyebrow">Predicted Honors</div>
+    <h2>Titles &amp; awards</h2>
+    <p>The model's calls for the tournament's individual and team honors.</p>
+  </div>
+  <div class="honors-grid" id="honorsGrid"></div>
+
+  <div class="section-head reveal" style="margin-top:90px;">
+    <div class="eyebrow">Actual Honors</div>
+    <h2 style="font-size:clamp(1.7rem,3.6vw,2.6rem);">Who really won</h2>
+    <p>Champion and runner-up fill in automatically once you crown the final above. Golden Boot and Golden Glove are FIFA's official calls, so set them yourself once announced.</p>
+  </div>
+
+  <div class="card confirm-card reveal" id="confirmAwardsCard" style="max-width:920px; margin:0 auto 48px;">
+    <div class="label">Set the official individual awards</div>
+    <div class="confirm-row">
+      <select id="actualBootSelect">
+        <option value="">Golden Boot — not yet announced</option>
+        <option value="Lionel Messi (Argentina)">Lionel Messi (Argentina)</option>
+        <option value="Kylian Mbappé (France)">Kylian Mbappé (France)</option>
+        <option value="Erling Haaland (Norway)">Erling Haaland (Norway)</option>
+        <option value="Harry Kane (England)">Harry Kane (England)</option>
+        <option value="Jude Bellingham (England)">Jude Bellingham (England)</option>
+        <option value="__other__">Other player…</option>
+      </select>
+      <select id="actualGloveSelect">
+        <option value="">Golden Glove — not yet announced</option>
+        <option value="Unai Simón (Spain)">Unai Simón (Spain)</option>
+        <option value="Mike Maignan (France)">Mike Maignan (France)</option>
+        <option value="Emiliano Martínez (Argentina)">Emiliano Martínez (Argentina)</option>
+        <option value="Jordan Pickford (England)">Jordan Pickford (England)</option>
+        <option value="Ørjan Nyland (Norway)">Ørjan Nyland (Norway)</option>
+        <option value="Gregor Kobel (Switzerland)">Gregor Kobel (Switzerland)</option>
+        <option value="__other__">Other goalkeeper…</option>
+      </select>
+    </div>
+    <div class="confirm-row" id="actualOtherRow" style="display:none; margin-top:14px;">
+      <input type="text" id="actualBootOther" placeholder="Golden Boot winner name" class="confirm-text">
+      <input type="text" id="actualGloveOther" placeholder="Golden Glove winner name" class="confirm-text">
+    </div>
+    <button class="btn-primary" id="confirmAwardsBtn">Set actual awards</button>
+    <div class="confirm-status" id="confirmAwardsStatus"></div>
+  </div>
+
+  <div class="honors-grid" id="actualHonorsGrid"></div>
+</section>
+
+<footer>
+  WORLD CUP 26 PREDICTION MODEL — for entertainment purposes only, not betting advice.
+  <span class="cutoff">Data cutoff: through the Quarterfinal round, July 11, 2026</span>
+</footer>
+
+<script>
+/* =========================================================================
+   EDIT THIS BLOCK to set your predicted awards. Everything else is wired up.
+   ========================================================================= */
+const AWARDS = {
+  champion:   { team: "France", note: "Highest power rating in the field (2340) — unbeaten, +16 goal difference, and the model's own bracket sim has them favored in every remaining tie." },
+  runnerUp:   { team: "Argentina", note: "Defending champions grinding out knockout wins; the model's bracket has them as favorites to escape the Norway/England side of the draw and reach the final." },
+  goldenBoot: { player: "Kylian Mbappé", team: "France", note: "Tied with Messi at 8 goals through the quarterfinals — playing for the model's projected champions gives him the most matches left to pull clear." },
+  goldenGlove:{ player: "Unai Simón", team: "Spain", note: "Yet to concede a goal through five matches, the best defensive record of any keeper left in the tournament." },
+  darkHorse:  { team: "Norway", note: "First-ever World Cup quarterfinal, riding Erling Haaland's streak of scoring in 14 straight internationals for his country." },
+};
+/* ========================================================================= */
+
+/* ---------------- TEAM DATABASE (ported from wc2026_predictor.py) ---------------- */
+const TEAMS = {
+  "France":       {group_pts:9, group_gd:8,  ko_wins:3, adj:90},
+  "Spain":        {group_pts:7, group_gd:6,  ko_wins:3, adj:70},
+  "Argentina":    {group_pts:9, group_gd:7,  ko_wins:2, adj:55},
+  "England":      {group_pts:7, group_gd:4,  ko_wins:2, adj:45},
+  "Norway":       {group_pts:6, group_gd:1,  ko_wins:2, adj:55},
+  "Switzerland":  {group_pts:7, group_gd:5,  ko_wins:2, adj:20},
+  "Morocco":      {group_pts:7, group_gd:4,  ko_wins:2, adj:30},
+  "Belgium":      {group_pts:6, group_gd:3,  ko_wins:2, adj:10},
+  "Brazil":       {group_pts:7, group_gd:5,  ko_wins:1, adj:40},
+  "Portugal":     {group_pts:5, group_gd:5,  ko_wins:1, adj:15},
+  "Colombia":     {group_pts:7, group_gd:3,  ko_wins:1, adj:5},
+  "Netherlands":  {group_pts:6, group_gd:3,  ko_wins:1, adj:10},
+  "Germany":      {group_pts:6, group_gd:6,  ko_wins:1, adj:15},
+  "Paraguay":     {group_pts:4, group_gd:0,  ko_wins:2, adj:0},
+  "Mexico":       {group_pts:9, group_gd:4,  ko_wins:1, adj:-10},
+  "USA":          {group_pts:6, group_gd:2,  ko_wins:1, adj:-10},
+  "Canada":       {group_pts:4, group_gd:4,  ko_wins:1, adj:-15},
+  "Egypt":        {group_pts:4, group_gd:-1, ko_wins:1, adj:20},
+  "Cape Verde":   {group_pts:5, group_gd:2,  ko_wins:1, adj:15},
+  "Croatia":      {group_pts:6, group_gd:0,  ko_wins:1, adj:0},
+  "Ivory Coast":  {group_pts:4, group_gd:1,  ko_wins:1, adj:0},
+  "Uruguay":      {group_pts:6, group_gd:2,  ko_wins:0, adj:10},
+  "Ecuador":      {group_pts:5, group_gd:1,  ko_wins:0, adj:0},
+  "Senegal":      {group_pts:3, group_gd:2,  ko_wins:0, adj:5},
+  "Japan":        {group_pts:5, group_gd:1,  ko_wins:0, adj:0},
+  "Ghana":        {group_pts:4, group_gd:-1, ko_wins:0, adj:0},
+  "DR Congo":     {group_pts:4, group_gd:1,  ko_wins:0, adj:-5},
+  "Sweden":       {group_pts:4, group_gd:1,  ko_wins:0, adj:0},
+  "Algeria":      {group_pts:4, group_gd:-2, ko_wins:0, adj:-5},
+  "Australia":    {group_pts:3, group_gd:-1, ko_wins:0, adj:-10},
+  "Panama":       {group_pts:0, group_gd:-3, ko_wins:0, adj:-15},
+  "South Africa": {group_pts:4, group_gd:-1, ko_wins:0, adj:-10},
+  "Korea Republic": {group_pts:3, group_gd:-1, ko_wins:0, adj:-10},
+  "Czechia":      {group_pts:1, group_gd:-4, ko_wins:0, adj:-15},
+  "Bosnia and Herzegovina": {group_pts:4, group_gd:-1, ko_wins:0, adj:-15},
+  "Qatar":        {group_pts:1, group_gd:-8, ko_wins:0, adj:-20},
+  "Iraq":         {group_pts:0, group_gd:-11,ko_wins:0, adj:-25},
+  "Jordan":       {group_pts:0, group_gd:-5, ko_wins:0, adj:-25},
+  "Austria":      {group_pts:4, group_gd:0,  ko_wins:0, adj:-5},
+  "Uzbekistan":   {group_pts:0, group_gd:-9, ko_wins:0, adj:-25},
+};
+
+const STILL_ALIVE = ["France","Spain","Argentina","England","Norway","Switzerland"];
+
+function rating(team){
+  const t = TEAMS[team];
+  return 1500 + 40*t.group_pts + 15*t.group_gd + 90*t.ko_wins + t.adj;
+}
+function winProbability(a,b){
+  const ra = rating(a), rb = rating(b);
+  const pa = 1/(1+Math.pow(10,(rb-ra)/400));
+  return [pa, 1-pa];
+}
+
+/* ---------------- populate dropdowns ---------------- */
+const teamNames = Object.keys(TEAMS).sort();
+const selA = document.getElementById('teamA');
+const selB = document.getElementById('teamB');
+teamNames.forEach(name=>{
+  selA.appendChild(new Option(name,name));
+  selB.appendChild(new Option(name,name));
+});
+selA.value = "France";
+selB.value = "Spain";
+
+/* ---------------- predict button ---------------- */
+document.getElementById('predictBtn').addEventListener('click', ()=>{
+  const a = selA.value, b = selB.value;
+  if(a === b){ return; }
+  const [pa,pb] = winProbability(a,b);
+  const ra = Math.round(rating(a)), rb = Math.round(rating(b));
+  const winner = pa >= pb ? a : b;
+
+  document.getElementById('winnerName').textContent = winner;
+  document.getElementById('nameA').textContent = a;
+  document.getElementById('nameB').textContent = b;
+  document.getElementById('pctA').textContent = (pa*100).toFixed(1)+'%';
+  document.getElementById('pctB').textContent = (pb*100).toFixed(1)+'%';
+  document.getElementById('ratingA').textContent = a+' power rating '+ra;
+  document.getElementById('ratingB').textContent = b+' power rating '+rb;
+
+  const result = document.getElementById('result');
+  result.classList.add('show');
+
+  const fillA = document.getElementById('fillA');
+  const fillB = document.getElementById('fillB');
+  fillA.style.width = '0%';
+  fillB.style.width = '0%';
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      fillA.style.width = (pa*100)+'%';
+      fillB.style.width = (pb*100)+'%';
+    },40);
+  });
+});
+
+/* ---------------- confirmed results (fill in as real scores land) ---------------- */
+const CONFIRMED = { ne: null, as: null, sf1: null, sf2: null, final: null };
+
+/* ---------------- actual (official) awards ---------------- */
+const ACTUAL_AWARDS = { champion: null, runnerUp: null, goldenBoot: null, goldenGlove: null };
+const actualHonorsGrid = document.getElementById('actualHonorsGrid');
+
+function renderActualHonors(){
+  const defs = [
+    { icon:'🏆', eyebrow:'World Cup Winner', name: ACTUAL_AWARDS.champion,
+      note: ACTUAL_AWARDS.champion ? 'Confirmed — crowned in the final above.' : 'Fills in automatically once you crown the champion above.' },
+    { icon:'🥈', eyebrow:'Runner-Up', name: ACTUAL_AWARDS.runnerUp,
+      note: ACTUAL_AWARDS.runnerUp ? 'Confirmed — the beaten finalist.' : 'Fills in automatically once you crown the champion above.' },
+    { icon:'👟', eyebrow:'Golden Boot', name: ACTUAL_AWARDS.goldenBoot,
+      note: ACTUAL_AWARDS.goldenBoot ? "FIFA's official award, set above." : 'Set once FIFA announces the winner.' },
+    { icon:'🧤', eyebrow:'Golden Glove', name: ACTUAL_AWARDS.goldenGlove,
+      note: ACTUAL_AWARDS.goldenGlove ? "FIFA's official award, set above." : 'Set once FIFA announces the winner.' },
+  ];
+  actualHonorsGrid.innerHTML = defs.map(h=>{
+    const pending = !h.name;
+    return `<div class="card honor-card pop ${pending?'pending':''}">
+      <div class="honor-icon">${h.icon}</div>
+      <div class="eyebrow">${h.eyebrow}${!pending ? '<span class="honor-badge">Actual</span>' : ''}</div>
+      <div class="honor-name">${h.name || 'TBD'}</div>
+      <div class="honor-note">${h.note}</div>
+    </div>`;
+  }).join('');
+}
+renderActualHonors();
+
+/* ---------------- bracket ---------------- */
+function buildBracket(){
+  const el = document.getElementById('bracket');
+
+  // Quarterfinals (the two still-pending ties)
+  let neP, enP, sf2TeamA;
+  if(CONFIRMED.ne){
+    sf2TeamA = CONFIRMED.ne;
+    neP = CONFIRMED.ne === "Norway" ? 1 : 0;
+    enP = 1 - neP;
+  } else {
+    [neP, enP] = winProbability("Norway","England");
+    sf2TeamA = neP >= enP ? "Norway" : "England";
+  }
+
+  let arP, swP, sf2TeamB;
+  if(CONFIRMED.as){
+    sf2TeamB = CONFIRMED.as;
+    arP = CONFIRMED.as === "Argentina" ? 1 : 0;
+    swP = 1 - arP;
+  } else {
+    [arP, swP] = winProbability("Argentina","Switzerland");
+    sf2TeamB = arP >= swP ? "Argentina" : "Switzerland";
+  }
+
+  // Semifinal 1: France v Spain
+  let frP, spP, sf1Winner;
+  if(CONFIRMED.sf1){
+    sf1Winner = CONFIRMED.sf1;
+    frP = CONFIRMED.sf1 === "France" ? 1 : 0;
+    spP = 1 - frP;
+  } else {
+    [frP, spP] = winProbability("France","Spain");
+    sf1Winner = frP >= spP ? "France" : "Spain";
+  }
+
+  // Semifinal 2: sf2TeamA v sf2TeamB
+  let sf2aP, sf2bP, sf2Winner;
+  if(CONFIRMED.sf2 && (CONFIRMED.sf2 === sf2TeamA || CONFIRMED.sf2 === sf2TeamB)){
+    sf2Winner = CONFIRMED.sf2;
+    sf2aP = CONFIRMED.sf2 === sf2TeamA ? 1 : 0;
+    sf2bP = 1 - sf2aP;
+  } else {
+    [sf2aP, sf2bP] = winProbability(sf2TeamA, sf2TeamB);
+    sf2Winner = sf2aP >= sf2bP ? sf2TeamA : sf2TeamB;
+  }
+
+  // Final: sf1Winner v sf2Winner
+  let finA, finB, champion, isActual;
+  if(CONFIRMED.final && (CONFIRMED.final === sf1Winner || CONFIRMED.final === sf2Winner)){
+    champion = CONFIRMED.final;
+    finA = CONFIRMED.final === sf1Winner ? 1 : 0;
+    finB = 1 - finA;
+    isActual = true;
+  } else {
+    [finA, finB] = winProbability(sf1Winner, sf2Winner);
+    champion = finA >= finB ? sf1Winner : sf2Winner;
+    isActual = false;
+  }
+
+  const neLabel = CONFIRMED.ne ? 'QF · SF2 slot A (final)' : 'QF · SF2 slot A (projected)';
+  const asLabel = CONFIRMED.as ? 'QF · SF2 slot B (final)' : 'QF · SF2 slot B (projected)';
+  const sf1Label = CONFIRMED.sf1 ? 'Semifinal 1 (final)' : 'Semifinal 1 (projected)';
+  const sf2Label = CONFIRMED.sf2 ? 'Semifinal 2 (final)' : 'Semifinal 2 (projected)';
+  const finalLabel = isActual ? 'Final (final)' : 'Final (projected)';
+
+  function tieHTML(label, teamX, teamY, pX, pY){
+    const winX = pX >= pY;
+    return `<div class="tie">
+      <div class="label">${label}</div>
+      <div class="tie-team ${winX?'winner':''}"><span>${teamX}</span><span class="pct">${(pX*100).toFixed(0)}%</span></div>
+      <div class="tie-team ${!winX?'winner':''}"><span>${teamY}</span><span class="pct">${(pY*100).toFixed(0)}%</span></div>
+    </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="bracket-col">
+      ${tieHTML(sf1Label, 'France', 'Spain', frP, spP)}
+      ${tieHTML(neLabel, 'Norway', 'England', neP, enP)}
+      ${tieHTML(asLabel, 'Argentina', 'Switzerland', arP, swP)}
+    </div>
+    <div class="bracket-col">
+      ${tieHTML(sf2Label, sf2TeamA, sf2TeamB, sf2aP, sf2bP)}
+      ${tieHTML(finalLabel, sf1Winner, sf2Winner, finA, finB)}
+    </div>
+    <div class="bracket-col final">
+      <div class="champion-tile ${isActual ? 'actual' : ''}">
+        <div class="label">${isActual ? '🏆 Actual World Cup Champion' : 'Predicted Champion'}</div>
+        <div class="name">${champion}</div>
+      </div>
+    </div>
+  `;
+
+  syncConfirmSelects(sf2TeamA, sf2TeamB, sf1Winner, sf2Winner);
+
+  if(isActual){
+    ACTUAL_AWARDS.champion = champion;
+    ACTUAL_AWARDS.runnerUp = (champion === sf1Winner) ? sf2Winner : sf1Winner;
+  } else {
+    ACTUAL_AWARDS.champion = null;
+    ACTUAL_AWARDS.runnerUp = null;
+  }
+  renderActualHonors();
+
+  const banner = document.getElementById('championBanner');
+  if(isActual){
+    document.getElementById('championBannerName').textContent = champion;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+/* keep the SF2 / Final dropdown options in sync with whichever teams currently occupy those slots */
+function syncConfirmSelects(sf2TeamA, sf2TeamB, sf1Winner, sf2Winner){
+  const sf2Sel = document.getElementById('confirmSF2');
+  sf2Sel.innerHTML = `
+    <option value="">Semifinal 2 — ${sf2TeamA} v ${sf2TeamB} — not yet played</option>
+    <option value="${sf2TeamA}">${sf2TeamA} win</option>
+    <option value="${sf2TeamB}">${sf2TeamB} win</option>
+  `;
+  if(CONFIRMED.sf2 === sf2TeamA || CONFIRMED.sf2 === sf2TeamB){
+    sf2Sel.value = CONFIRMED.sf2;
+  } else {
+    CONFIRMED.sf2 = null;
+    sf2Sel.value = "";
+  }
+
+  const finalSel = document.getElementById('confirmFinal');
+  finalSel.innerHTML = `
+    <option value="">Final — ${sf1Winner} v ${sf2Winner} — not yet played</option>
+    <option value="${sf1Winner}">${sf1Winner} win</option>
+    <option value="${sf2Winner}">${sf2Winner} win</option>
+  `;
+  if(CONFIRMED.final === sf1Winner || CONFIRMED.final === sf2Winner){
+    finalSel.value = CONFIRMED.final;
+  } else {
+    CONFIRMED.final = null;
+    finalSel.value = "";
+  }
+}
+buildBracket();
+
+/* ---------------- monte carlo simulation ---------------- */
+function simMatch(a,b){
+  const [pa,] = winProbability(a,b);
+  return Math.random() < pa ? a : b;
+}
+function simulateBracket(nSims){
+  const titles = {};
+  STILL_ALIVE.forEach(t=>titles[t]=0);
+  for(let i=0;i<nSims;i++){
+    const sf2a = CONFIRMED.ne || simMatch("Norway","England");
+    const sf2b = CONFIRMED.as || simMatch("Argentina","Switzerland");
+    const f1 = CONFIRMED.sf1 || simMatch("France","Spain");
+    const f2 = (CONFIRMED.sf2 === sf2a || CONFIRMED.sf2 === sf2b) ? CONFIRMED.sf2 : simMatch(sf2a, sf2b);
+    const champ = (CONFIRMED.final === f1 || CONFIRMED.final === f2) ? CONFIRMED.final : simMatch(f1, f2);
+    titles[champ]++;
+  }
+  return Object.entries(titles)
+    .map(([team,count])=>({team, pct: count/nSims*100}))
+    .sort((x,y)=>y.pct-x.pct);
+}
+
+function buildOdds(){
+  const results = simulateBracket(20000);
+  const list = document.getElementById('oddsList');
+  list.innerHTML = results.map(r=>`
+    <div class="odds-row">
+      <div class="odds-name">${r.team}</div>
+      <div class="odds-track"><div class="odds-fill" data-pct="${r.pct}"></div></div>
+      <div class="odds-pct">${r.pct.toFixed(1)}%</div>
+    </div>
+  `).join('');
+  requestAnimationFrame(()=>{
+    list.querySelectorAll('.odds-fill').forEach(fill=>{
+      fill.style.width = fill.getAttribute('data-pct') + '%';
+    });
+  });
+}
+buildOdds();
+
+/* ---------------- confirm actual results ---------------- */
+document.getElementById('confirmBtn').addEventListener('click', ()=>{
+  const neVal = document.getElementById('confirmNE').value;
+  const asVal = document.getElementById('confirmAS').value;
+  let updated = [];
+
+  if(neVal && neVal !== CONFIRMED.ne){
+    CONFIRMED.ne = neVal;
+    TEAMS[neVal].ko_wins = 3; // won the quarterfinal, into the semis
+    updated.push(neVal + ' beat ' + (neVal === 'Norway' ? 'England' : 'Norway'));
+  }
+  if(asVal && asVal !== CONFIRMED.as){
+    CONFIRMED.as = asVal;
+    TEAMS[asVal].ko_wins = 3;
+    updated.push(asVal + ' beat ' + (asVal === 'Argentina' ? 'Switzerland' : 'Argentina'));
+  }
+
+  buildBracket();
+  buildOdds();
+
+  const status = document.getElementById('confirmStatus');
+  status.textContent = updated.length
+    ? 'Model updated — ' + updated.join(' · ')
+    : 'Pick at least one confirmed result to update the model.';
+});
+
+document.getElementById('confirmSFBtn').addEventListener('click', ()=>{
+  const sf1Val = document.getElementById('confirmSF1').value;
+  const sf2Val = document.getElementById('confirmSF2').value;
+  let updated = [];
+
+  if(sf1Val && sf1Val !== CONFIRMED.sf1){
+    CONFIRMED.sf1 = sf1Val;
+    TEAMS[sf1Val].ko_wins = 4; // won a semifinal, into the final
+    updated.push(sf1Val + ' reach the final');
+  }
+  if(sf2Val && sf2Val !== CONFIRMED.sf2){
+    CONFIRMED.sf2 = sf2Val;
+    TEAMS[sf2Val].ko_wins = 4;
+    updated.push(sf2Val + ' reach the final');
+  }
+
+  buildBracket();
+  buildOdds();
+
+  const status = document.getElementById('confirmSFStatus');
+  status.textContent = updated.length
+    ? 'Model updated — ' + updated.join(' · ')
+    : 'Pick at least one confirmed result to update the model.';
+});
+
+document.getElementById('confirmFinalBtn').addEventListener('click', ()=>{
+  const finalVal = document.getElementById('confirmFinal').value;
+
+  if(!finalVal){
+    document.getElementById('confirmFinalStatus').textContent = 'Pick the final winner to crown the champion.';
+    return;
+  }
+
+  CONFIRMED.final = finalVal;
+  TEAMS[finalVal].ko_wins = 5; // World Cup winners
+
+  buildBracket();
+  buildOdds();
+
+  document.getElementById('confirmFinalStatus').textContent = finalVal + ' are the FIFA World Cup 2026 champions.';
+  document.getElementById('championBanner').scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+/* ---------------- actual Golden Boot / Golden Glove ---------------- */
+function syncOtherRow(){
+  const bootIsOther = document.getElementById('actualBootSelect').value === '__other__';
+  const gloveIsOther = document.getElementById('actualGloveSelect').value === '__other__';
+  document.getElementById('actualOtherRow').style.display = (bootIsOther || gloveIsOther) ? 'grid' : 'none';
+  document.getElementById('actualBootOther').style.display = bootIsOther ? 'block' : 'none';
+  document.getElementById('actualGloveOther').style.display = gloveIsOther ? 'block' : 'none';
+}
+document.getElementById('actualBootSelect').addEventListener('change', syncOtherRow);
+document.getElementById('actualGloveSelect').addEventListener('change', syncOtherRow);
+
+document.getElementById('confirmAwardsBtn').addEventListener('click', ()=>{
+  const bootSel = document.getElementById('actualBootSelect').value;
+  const gloveSel = document.getElementById('actualGloveSelect').value;
+  const bootOther = document.getElementById('actualBootOther').value.trim();
+  const gloveOther = document.getElementById('actualGloveOther').value.trim();
+
+  let updated = [];
+  if(bootSel === '__other__' && bootOther){
+    ACTUAL_AWARDS.goldenBoot = bootOther;
+    updated.push('Golden Boot: ' + bootOther);
+  } else if(bootSel && bootSel !== '__other__'){
+    ACTUAL_AWARDS.goldenBoot = bootSel;
+    updated.push('Golden Boot: ' + bootSel);
+  }
+
+  if(gloveSel === '__other__' && gloveOther){
+    ACTUAL_AWARDS.goldenGlove = gloveOther;
+    updated.push('Golden Glove: ' + gloveOther);
+  } else if(gloveSel && gloveSel !== '__other__'){
+    ACTUAL_AWARDS.goldenGlove = gloveSel;
+    updated.push('Golden Glove: ' + gloveSel);
+  }
+
+  renderActualHonors();
+
+  const status = document.getElementById('confirmAwardsStatus');
+  status.textContent = updated.length ? 'Set — ' + updated.join(' · ') : 'Choose an award winner first.';
+});
+
+/* ---------------- honors cards ---------------- */
+const HONOR_DEFS = [
+  { key:'champion', icon:'🏆', eyebrow:'World Cup Winner', name: AWARDS.champion.team, sub:'', note: AWARDS.champion.note },
+  { key:'runnerUp', icon:'🥈', eyebrow:'Runner-Up', name: AWARDS.runnerUp.team, sub:'', note: AWARDS.runnerUp.note },
+  { key:'goldenBoot', icon:'👟', eyebrow:'Golden Boot', name: AWARDS.goldenBoot.player, sub: AWARDS.goldenBoot.team, note: AWARDS.goldenBoot.note },
+  { key:'goldenGlove', icon:'🧤', eyebrow:'Golden Glove', name: AWARDS.goldenGlove.player, sub: AWARDS.goldenGlove.team, note: AWARDS.goldenGlove.note },
+  { key:'darkHorse', icon:'🐎', eyebrow:'Dark Horse', name: AWARDS.darkHorse.team, sub:'', note: AWARDS.darkHorse.note },
+];
+const honorsGrid = document.getElementById('honorsGrid');
+honorsGrid.innerHTML = HONOR_DEFS.map((h,i)=>`
+  <div class="card honor-card reveal reveal-delay-${Math.min(i+1,5)}">
+    <div class="honor-icon">${h.icon}</div>
+    <div class="eyebrow">${h.eyebrow}</div>
+    <div class="honor-name">${h.name}</div>
+    ${h.sub ? `<div class="honor-sub">${h.sub}</div>` : ''}
+    <div class="honor-note">${h.note}</div>
+  </div>
+`).join('');
+
+/* ---------------- scroll reveal ---------------- */
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add('is-visible');
+      if(entry.target.id === 'oddsList'){
+        entry.target.querySelectorAll('.odds-fill').forEach(fill=>{
+          const pct = fill.getAttribute('data-pct');
+          requestAnimationFrame(()=>{ fill.style.width = pct+'%'; });
+        });
+      }
+      io.unobserve(entry.target);
+    }
+  });
+},{threshold:0.15});
+revealEls.forEach(el=>io.observe(el));
+
+/* ---------------- custom football cursor ---------------- */
+(function(){
+  if(!window.matchMedia('(pointer: fine)').matches) return;
+  document.body.classList.add('has-custom-cursor');
+
+  const ball = document.getElementById('cursorBall');
+  const trail = document.getElementById('cursorTrail');
+  let mx = innerWidth/2, my = innerHeight/2;
+  let tx = mx, ty = my;
+  let lastX = mx, lastY = my, rot = 0;
+  let seen = false;
+
+  window.addEventListener('mousemove', e=>{
+    mx = e.clientX; my = e.clientY;
+    if(!seen){ tx=mx; ty=my; lastX=mx; lastY=my; seen=true; }
+  });
+
+  function loop(){
+    tx += (mx - tx) * 0.2;
+    ty += (my - ty) * 0.2;
+    const dx = mx - lastX, dy = my - lastY;
+    const dist = Math.hypot(dx, dy);
+    if(dist > 0.4){ rot += dist * 1.4; lastX = mx; lastY = my; }
+    if(seen){
+      ball.style.transform = `translate(${mx}px,${my}px) rotate(${rot}deg)`;
+      trail.style.transform = `translate(${tx}px,${ty}px)`;
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  document.querySelectorAll('a, button, select, input').forEach(el=>{
+    el.addEventListener('mouseenter', ()=>ball.classList.add('is-hover'));
+    el.addEventListener('mouseleave', ()=>ball.classList.remove('is-hover'));
+  });
+
+  window.addEventListener('mousedown', e=>{
+    const n = 6;
+    for(let i=0;i<n;i++){
+      const angle = (Math.PI*2/n)*i + Math.random()*0.4;
+      const spark = document.createElement('div');
+      spark.className = 'kick-spark';
+      spark.style.setProperty('--dx', Math.cos(angle)*34 + 'px');
+      spark.style.setProperty('--dy', Math.sin(angle)*34 + 'px');
+      spark.style.left = e.clientX + 'px';
+      spark.style.top = e.clientY + 'px';
+      document.body.appendChild(spark);
+      setTimeout(()=>spark.remove(), 600);
+    }
+  });
+})();
+</script>
+</body>
+</html>
