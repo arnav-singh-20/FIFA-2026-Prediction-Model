@@ -2,7 +2,7 @@
 
 An interactive, single-page prediction tool for the FIFA World Cup 2026. It rates every team, predicts head-to-head matchups, simulates the rest of the bracket thousands of times, and projects individual awards — all client-side, no backend required.
 
-**[Live demo →](wc2026_predictor.html)** 
+**[Live demo](wc2026_predictor.html)** 
 
 > The scoring model started life as a small Python prototype (`wc2026_predictor.py`) and has since been ported into the vanilla JavaScript that powers this page, so the site works from a single `index.html` file with no server or build step. The math described below is identical in both versions.
 
