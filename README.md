@@ -116,7 +116,3 @@ No build step, no dependencies — edit the values and refresh the page.
 - Built for entertainment and illustration of Elo/Monte Carlo methodology — **not betting advice.**
 
 ---
-
-## License
-
-Add a license of your choice (MIT is a common default for small personal projects like this).
